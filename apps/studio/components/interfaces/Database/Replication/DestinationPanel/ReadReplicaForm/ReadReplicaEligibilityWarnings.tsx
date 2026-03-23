@@ -5,7 +5,7 @@ import { DocsButton } from 'components/ui/DocsButton'
 import { UpgradePlanButton } from 'components/ui/UpgradePlanButton'
 import { useEnablePhysicalBackupsMutation } from 'data/database/enable-physical-backups-mutation'
 import { useProjectDetailQuery } from 'data/projects/project-detail-query'
-import { MAX_REPLICAS_ABOVE_XL, MAX_REPLICAS_BELOW_XL } from 'data/read-replicas/replicas-query'
+import { max } from 'data/read-replicas/replicas-query'
 import { useSelectedOrganizationQuery } from 'hooks/misc/useSelectedOrganization'
 import { useSelectedProjectQuery } from 'hooks/misc/useSelectedProject'
 import { DOCS_URL } from 'lib/constants'
@@ -222,12 +222,11 @@ export const ReadReplicaEligibilityWarnings = () => {
         title={`You can only deploy up to ${maxNumberOfReplicas} read replicas at once`}
       >
         <p>If you'd like to spin up another read replica, please drop an existing replica first.</p>
-        {maxNumberOfReplicas === MAX_REPLICAS_BELOW_XL && (
+        {maxNumberOfReplicas < max && (
           <>
             <p>
-              Alternatively, you may deploy up to{' '}
-              <span className="text-foreground">{MAX_REPLICAS_ABOVE_XL}</span> replicas if your
-              project is on an XL compute or higher.
+              Alternatively, you may deploy up to <span className="text-foreground">{max}</span>{' '}
+              replicas if your project is on an XL compute or higher.
             </p>
             <UpgradePlanButton
               variant="default"

@@ -1,16 +1,11 @@
-import { useMemo } from 'react'
-
 import { useParams } from 'common'
 import { useOverdueInvoicesQuery } from 'data/invoices/invoices-overdue-query'
-import {
-  MAX_REPLICAS_ABOVE_XL,
-  MAX_REPLICAS_BELOW_XL,
-  useReadReplicasQuery,
-} from 'data/read-replicas/replicas-query'
+import { caps, getMaxReplicas, useReadReplicasQuery } from 'data/read-replicas/replicas-query'
 import { useProjectAddonsQuery } from 'data/subscriptions/project-addons-query'
 import { useCheckEntitlements } from 'hooks/misc/useCheckEntitlements'
 import { useSelectedOrganizationQuery } from 'hooks/misc/useSelectedOrganization'
 import { useIsAwsK8sCloudProvider, useSelectedProjectQuery } from 'hooks/misc/useSelectedProject'
+import { useMemo } from 'react'
 
 export const useCheckEligibilityDeployReplica = () => {
   const { ref: projectRef } = useParams()
@@ -41,14 +36,9 @@ export const useCheckEligibilityDeployReplica = () => {
   const currentComputeAddon = addons?.selected_addons.find(
     (addon) => addon.type === 'compute_instance'
   )?.variant.identifier
-  const isMinimallyOnSmallCompute =
-    currentComputeAddon !== undefined && currentComputeAddon !== 'ci_micro'
 
-  const maxNumberOfReplicas = ['ci_micro', 'ci_small', 'ci_medium', 'ci_large'].includes(
-    currentComputeAddon ?? 'ci_micro'
-  )
-    ? MAX_REPLICAS_BELOW_XL
-    : MAX_REPLICAS_ABOVE_XL
+  const isBelowSmallCompute = currentComputeAddon === undefined || caps[currentComputeAddon] === 0
+  const maxNumberOfReplicas = getMaxReplicas(currentComputeAddon)
   const isReachedMaxReplicas =
     (databases ?? []).filter((db) => db.identifier !== projectRef).length >= maxNumberOfReplicas
 
@@ -62,11 +52,10 @@ export const useCheckEligibilityDeployReplica = () => {
     isAWSProvider &&
     hasReadReplicaAccess &&
     isWalgEnabled &&
-    currentComputeAddon !== undefined &&
     !hasOverdueInvoices &&
     !isAwsK8s &&
     !isProWithSpendCapEnabled &&
-    isMinimallyOnSmallCompute
+    !isBelowSmallCompute
 
   return {
     can: canDeployReplica,
@@ -74,7 +63,7 @@ export const useCheckEligibilityDeployReplica = () => {
     isAWSProvider,
     isAwsK8s,
     isPgVersionBelow15: currentPgVersion < 15,
-    isBelowSmallCompute: !isMinimallyOnSmallCompute,
+    isBelowSmallCompute,
     isWalgNotEnabled: !isWalgEnabled,
     isProWithSpendCapEnabled,
     isReachedMaxReplicas,

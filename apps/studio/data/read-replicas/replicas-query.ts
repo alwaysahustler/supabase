@@ -9,8 +9,23 @@ import { DashboardPreference } from '@/components/interfaces/Settings/General/Da
 import { useLocalStorageQuery } from '@/hooks/misc/useLocalStorage'
 import { useSelectedProjectQuery } from '@/hooks/misc/useSelectedProject'
 
-export const MAX_REPLICAS_BELOW_XL = 2
-export const MAX_REPLICAS_ABOVE_XL = 5
+/**
+ * Unless explicitly defined here, caps default to `max`.
+ */
+export const caps: Record<string, number> = {
+  ci_pico: 0,
+  ci_nano: 0,
+  ci_micro: 0,
+  ci_small: 4,
+  ci_medium: 4,
+  ci_large: 4,
+}
+
+export const max = 5
+
+export function getMaxReplicas(computeAddon?: string): number {
+  return caps[`${computeAddon}`] ?? max
+}
 
 export type ReadReplicasVariables = {
   projectRef?: string
