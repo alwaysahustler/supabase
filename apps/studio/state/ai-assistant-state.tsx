@@ -47,7 +47,7 @@ type AiAssistantData = {
   tables: { schema: string; name: string }[]
   chats: Record<string, ChatSession>
   activeChatId?: string
-  model: AssistantModel
+  model?: AssistantModel
   context: AiAssistantContext
 }
 
@@ -66,7 +66,7 @@ const INITIAL_AI_ASSISTANT: AiAssistantData = {
   tables: [],
   chats: {},
   activeChatId: undefined,
-  model: 'gpt-5.3-codex',
+  model: undefined,
   context: {},
 }
 
