@@ -92,9 +92,7 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, claims?: Jw
   } = data
 
   const requestedModel: AssistantModelId | undefined =
-    rawRequestedModel && isKnownAssistantModelId(rawRequestedModel)
-      ? rawRequestedModel
-      : undefined
+    rawRequestedModel && isKnownAssistantModelId(rawRequestedModel) ? rawRequestedModel : undefined
 
   const messagesValidation = await safeValidateUIMessages({ messages: rawMessages })
   if (!messagesValidation.success) {
