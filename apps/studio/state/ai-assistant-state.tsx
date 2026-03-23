@@ -8,6 +8,7 @@ import { proxy, ref, snapshot, subscribe, useSnapshot } from 'valtio'
 
 import { constructHeaders } from 'data/fetchers'
 import { prepareMessagesForAPI } from 'lib/ai/message-utils'
+import { isKnownAssistantModelId } from 'lib/ai/model.utils'
 import type { AssistantModelId } from 'lib/ai/model.utils'
 import { BASE_PATH, IS_PLATFORM } from 'lib/constants'
 
@@ -65,7 +66,7 @@ const INITIAL_AI_ASSISTANT: AiAssistantData = {
   tables: [],
   chats: {},
   activeChatId: undefined,
-  model: 'gpt-5',
+  model: 'gpt-5.3-codex',
   context: {},
 }
 
@@ -487,7 +488,11 @@ export const createAiAssistantState = (): AiAssistantState => {
     loadPersistedState: (persistedState: StoredAiAssistantState) => {
       state.chats = persistedState.chats
       state.activeChatId = persistedState.activeChatId
-      state.model = persistedState.model ?? INITIAL_AI_ASSISTANT.model
+      const storedModel = persistedState.model
+      state.model =
+        storedModel && isKnownAssistantModelId(storedModel)
+          ? storedModel
+          : INITIAL_AI_ASSISTANT.model
 
       // Ensure an active chat exists after loading
       if (!state.activeChat) {

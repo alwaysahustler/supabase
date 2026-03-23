@@ -2,84 +2,63 @@ export type ProviderName = 'bedrock' | 'openai'
 
 export type BedrockModel = 'anthropic.claude-3-7-sonnet-20250219-v1:0' | 'openai.gpt-oss-120b-1:0'
 
-export type OpenAIModelId = 'gpt-5' | 'gpt-5-mini'
+export type OpenAIModelId = 'gpt-5.4-nano' | 'gpt-5.3-codex'
 
 // Source: https://developers.openai.com/api/docs/guides/reasoning + per-model pages
 export type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
 
 // Per-model reasoning effort compatibility.
-// When adding a model, verify supported levels in the community matrix and add an entry:
-// https://community.openai.com/t/request-for-compatibility-matrix-reasoning-effort-sampling-parameters-across-gpt-5-series/1371738/2
+// Sources: https://developers.openai.com/api/docs/models/gpt-5.4-nano
+//          https://developers.openai.com/api/docs/models/gpt-5.3-codex
 type ModelReasoningSupport = {
-  'gpt-5': 'minimal' | 'low' | 'medium' | 'high'
-  'gpt-5-mini': 'minimal' | 'low' | 'medium' | 'high'
+  'gpt-5.4-nano': 'none' | 'low' | 'medium' | 'high' | 'xhigh'
+  'gpt-5.3-codex': 'low' | 'medium' | 'high' | 'xhigh'
 }
 
-type ReasoningEffortFor<ModelId extends OpenAIModelId> = ModelId extends keyof ModelReasoningSupport
-  ? ModelReasoningSupport[ModelId]
-  : never
-
 /** Type-safe factory for configuring OpenAI models with compatible reasoning efforts. */
-export function openaiModelEntry<
-  ModelId extends OpenAIModelId,
-  RequiresAdvance extends boolean = false,
->(config: {
+export function openaiModelEntry<ModelId extends OpenAIModelId>(config: {
   id: ModelId
-  /** When true, the model requires the `assistant.advance_model` entitlement (paid plans). Defaults to false. */
-  requiresAdvanceModelEntitlement?: RequiresAdvance
   /**
    * When omitted, OpenAI applies its own default reasoning effort for the model,
    * which may not be zero. Use an explicit level to control cost and latency.
    */
-  reasoningEffort?: ReasoningEffortFor<ModelId>
-}): {
-  id: ModelId
-  requiresAdvanceModelEntitlement: RequiresAdvance
-  reasoningEffort?: ReasoningEffortFor<ModelId>
-} {
-  return {
-    requiresAdvanceModelEntitlement: false as RequiresAdvance,
-    ...config,
-  }
+  reasoningEffort?: ModelId extends keyof ModelReasoningSupport
+    ? ModelReasoningSupport[ModelId]
+    : never
+}) {
+  return config
 }
 
 export type OpenAIModelEntry = ReturnType<typeof openaiModelEntry>
 
 /** Default model entry for simple completion endpoints where latency is more important than reasoning. */
 export const DEFAULT_COMPLETION_MODEL = openaiModelEntry({
-  id: 'gpt-5-mini',
-  reasoningEffort: 'minimal',
+  id: 'gpt-5.4-nano',
+  reasoningEffort: 'none',
 })
 
-// Single source of truth for all Assistant chat model variants and their reasoning levels.
-// Models with requiresAdvanceModelEntitlement false are available to all users; true requires the assistant.advance_model entitlement.
-export const ASSISTANT_MODELS = [
-  openaiModelEntry({
-    id: 'gpt-5-mini',
-    requiresAdvanceModelEntitlement: false,
-    reasoningEffort: 'minimal',
-  }),
-  openaiModelEntry({
-    id: 'gpt-5',
-    requiresAdvanceModelEntitlement: true,
-    reasoningEffort: 'minimal',
-  }),
+// Models available to all users (free tier).
+export const ASSISTANT_MODELS_BASE = [
+  openaiModelEntry({ id: 'gpt-5.4-nano', reasoningEffort: 'low' }),
 ] as const
 
-export type AssistantBaseModelId = Extract<
-  (typeof ASSISTANT_MODELS)[number],
-  { requiresAdvanceModelEntitlement: false }
->['id']
+// Models restricted to users with `assistant.advance_model` entitlement (paid plans).
+export const ASSISTANT_MODELS_ADVANCE_ONLY = [
+  openaiModelEntry({ id: 'gpt-5.3-codex', reasoningEffort: 'low' }),
+] as const
+
+// Single source of truth for all Assistant chat model variants and their reasoning levels.
+export const ASSISTANT_MODELS = [
+  ...ASSISTANT_MODELS_BASE,
+  ...ASSISTANT_MODELS_ADVANCE_ONLY,
+] as const
+
+export type AssistantBaseModelId = (typeof ASSISTANT_MODELS_BASE)[number]['id']
 export type AssistantModelId = (typeof ASSISTANT_MODELS)[number]['id']
 
-const ASSISTANT_MODELS_MAP = Object.fromEntries(ASSISTANT_MODELS.map((m) => [m.id, m])) as Record<
-  AssistantModelId,
-  (typeof ASSISTANT_MODELS)[number]
->
+export const DEFAULT_ASSISTANT_BASE_MODEL_ID = 'gpt-5.4-nano' satisfies AssistantBaseModelId
 
-export const DEFAULT_ASSISTANT_BASE_MODEL_ID = 'gpt-5-mini' satisfies AssistantBaseModelId
-
-export const DEFAULT_ASSISTANT_ADVANCE_MODEL_ID = 'gpt-5' satisfies AssistantModelId
+export const DEFAULT_ASSISTANT_ADVANCE_MODEL_ID = 'gpt-5.3-codex' satisfies AssistantModelId
 
 export function defaultAssistantModelId(hasAccessToAdvanceModel: boolean): AssistantModelId {
   return hasAccessToAdvanceModel
@@ -87,26 +66,30 @@ export function defaultAssistantModelId(hasAccessToAdvanceModel: boolean): Assis
     : DEFAULT_ASSISTANT_BASE_MODEL_ID
 }
 
-export function isKnownAssistantModelId(id: string): id is AssistantModelId {
-  return id in ASSISTANT_MODELS_MAP
-}
+const ASSISTANT_BASE_MODEL_IDS = new Set<string>(ASSISTANT_MODELS_BASE.map((m) => m.id))
+
+const ASSISTANT_ADVANCE_ONLY_MODEL_IDS = new Set<string>(
+  ASSISTANT_MODELS_ADVANCE_ONLY.map((m) => m.id)
+)
+
+const ASSISTANT_ALL_MODEL_IDS = new Set<string>(ASSISTANT_MODELS.map((m) => m.id))
 
 export function isAssistantBaseModelId(id: string): id is AssistantBaseModelId {
-  return (
-    id in ASSISTANT_MODELS_MAP &&
-    !ASSISTANT_MODELS_MAP[id as AssistantModelId].requiresAdvanceModelEntitlement
-  )
+  return ASSISTANT_BASE_MODEL_IDS.has(id)
 }
 
 export function isAdvanceOnlyModelId(id: string): boolean {
-  return (
-    id in ASSISTANT_MODELS_MAP &&
-    ASSISTANT_MODELS_MAP[id as AssistantModelId].requiresAdvanceModelEntitlement
-  )
+  return ASSISTANT_ADVANCE_ONLY_MODEL_IDS.has(id)
 }
 
-export function getAssistantModelEntry(id: AssistantModelId): (typeof ASSISTANT_MODELS)[number] {
-  return ASSISTANT_MODELS_MAP[id]
+export function isKnownAssistantModelId(id: string): id is AssistantModelId {
+  return ASSISTANT_ALL_MODEL_IDS.has(id)
+}
+
+export function getAssistantModelEntry(
+  id: AssistantModelId
+): (typeof ASSISTANT_MODELS)[number] | undefined {
+  return ASSISTANT_MODELS.find((m) => m.id === id)
 }
 
 export type Model = BedrockModel | OpenAIModelId
@@ -148,8 +131,8 @@ export const PROVIDERS: ProviderRegistry = {
   },
   openai: {
     models: {
-      'gpt-5': { default: false },
-      'gpt-5-mini': { default: true },
+      'gpt-5.3-codex': { default: false },
+      'gpt-5.4-nano': { default: true },
     },
     providerOptions: {
       openai: {

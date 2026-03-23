@@ -92,16 +92,15 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, claims?: Jw
   } = data
 
   const requestedModel: AssistantModelId | undefined =
-    rawRequestedModel && isKnownAssistantModelId(rawRequestedModel) ? rawRequestedModel : undefined
+    rawRequestedModel && isKnownAssistantModelId(rawRequestedModel)
+      ? rawRequestedModel
+      : undefined
 
-  const messagesValidation = await safeValidateUIMessages({
-    messages: rawMessages,
-  })
+  const messagesValidation = await safeValidateUIMessages({ messages: rawMessages })
   if (!messagesValidation.success) {
-    return res.status(400).json({
-      error: 'Invalid request body',
-      message: messagesValidation.error.message,
-    })
+    return res
+      .status(400)
+      .json({ error: 'Invalid request body', message: messagesValidation.error.message })
   }
   const messages = messagesValidation.data
 
@@ -156,7 +155,7 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, claims?: Jw
     promptProviderOptions,
   } = await getModel({
     provider: 'openai',
-    modelEntry: getAssistantModelEntry(effectiveModel),
+    modelEntry: getAssistantModelEntry(effectiveModel)!,
   })
 
   if (modelError) {
