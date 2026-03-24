@@ -2,8 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import {
   ASSISTANT_MODELS,
-  ASSISTANT_MODELS_ADVANCE_ONLY,
-  ASSISTANT_MODELS_BASE,
   DEFAULT_ASSISTANT_ADVANCE_MODEL_ID,
   DEFAULT_ASSISTANT_BASE_MODEL_ID,
   DEFAULT_COMPLETION_MODEL,
@@ -90,16 +88,18 @@ describe('model.utils', () => {
   })
 
   describe('assistant model registry', () => {
-    it('should have non-empty BASE and ADVANCE_ONLY', () => {
-      expect(ASSISTANT_MODELS_BASE.length).toBeGreaterThan(0)
-      expect(ASSISTANT_MODELS_ADVANCE_ONLY.length).toBeGreaterThan(0)
+    it('should have non-empty base and advance tiers', () => {
+      expect(
+        ASSISTANT_MODELS.filter((m) => !m.requiresAdvanceModelEntitlement).length
+      ).toBeGreaterThan(0)
+      expect(
+        ASSISTANT_MODELS.filter((m) => m.requiresAdvanceModelEntitlement).length
+      ).toBeGreaterThan(0)
     })
 
-    it('BASE and ADVANCE_ONLY should be disjoint', () => {
-      const advanceOnlyIds = new Set<string>(ASSISTANT_MODELS_ADVANCE_ONLY.map((m) => m.id))
-      ASSISTANT_MODELS_BASE.forEach((m) => {
-        expect(advanceOnlyIds.has(m.id)).toBe(false)
-      })
+    it('all model IDs should be unique', () => {
+      const ids = ASSISTANT_MODELS.map((m) => m.id)
+      expect(new Set(ids).size).toBe(ids.length)
     })
 
     it('should have all models in openai provider registry', () => {
@@ -131,10 +131,10 @@ describe('model.utils', () => {
     })
 
     it('getAssistantModelEntry returns config for known ids', () => {
-      expect(getAssistantModelEntry('gpt-5.4-nano')?.reasoningEffort).toBe('low')
-      expect(getAssistantModelEntry('gpt-5.3-codex')?.reasoningEffort).toBe('low')
+      expect(getAssistantModelEntry('gpt-5.4-nano').reasoningEffort).toBe('low')
+      expect(getAssistantModelEntry('gpt-5.3-codex').reasoningEffort).toBe('low')
       expect(getAssistantModelEntry('gpt-5.4-nano')).toEqual(
-        ASSISTANT_MODELS_BASE.find((m) => m.id === 'gpt-5.4-nano')
+        ASSISTANT_MODELS.find((m) => m.id === 'gpt-5.4-nano')
       )
     })
 
